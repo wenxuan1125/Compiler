@@ -3,24 +3,33 @@
 
 #include "AST/expression.hpp"
 
+#include <memory>
+#include <vector>
+#include <cstring>
+
 class FunctionInvocationNode : public ExpressionNode {
   public:
+    typedef std::vector<std::unique_ptr<ExpressionNode>> Exprs;
+
     FunctionInvocationNode(const uint32_t line, const uint32_t col,
-                          const char *p_name, std::vector<AstNode*> *p_expr_list
-                           /* TODO: function name, expressions */);
+                           const char *p_name, Exprs *p_arguments);
     ~FunctionInvocationNode() = default;
 
     const char *getNameCString() const;
+    const char *getArgumentTypeCString( const int id) const;
+    const char *getParameterTypeCString( const int id, const char *parameters_type) const;
+    const uint32_t getArgumentLocationCol( const int id) const; 
+    const int getArgumentsNum() const; 
+    const int checkInvalidChildren() const;
+    const int checkArgumentsType(const char *parameters_type) const;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
     void accept(AstNodeVisitor &p_visitor) override;
-
-    void print() override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
+    //void setNodeType(PTypeSharedPtr p_type);
 
   private:
-    // TODO: function name, expressions
     const std::string name;
-    std::vector<AstNode*> *expression_list;
+    Exprs arguments;
 };
 
 #endif

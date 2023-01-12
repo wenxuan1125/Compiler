@@ -1,25 +1,29 @@
 #ifndef __AST_IF_NODE_H
 #define __AST_IF_NODE_H
 
+#include "AST/CompoundStatement.hpp"
 #include "AST/ast.hpp"
+#include "AST/expression.hpp"
+
+#include <memory>
+#include <cstring>
 
 class IfNode : public AstNode {
   public:
-    IfNode(const uint32_t line, const uint32_t col, AstNode *p_cond, AstNode *p_body, AstNode *p_body_el
-           /* TODO: expression, compound statement, compound statement */);
+    IfNode(const uint32_t line, const uint32_t col, ExpressionNode *p_condition,
+           CompoundStatementNode *p_body, CompoundStatementNode *p_else);
     ~IfNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
     void accept(AstNodeVisitor &p_visitor) override;
-
-
-    void print() override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
+    const int checkInvalidCondition() const;
+    const int checkConditionBoolType() const;
+    const uint32_t getConditionLocationCol() const;
 
   private:
-    // TODO: expression, compound statement, compound statement
-    AstNode *condition;
-    AstNode *body;
-    AstNode *body_else;
+    std::unique_ptr<ExpressionNode> condition;
+    std::unique_ptr<CompoundStatementNode> body;
+    std::unique_ptr<CompoundStatementNode> else_body;
 };
 
 #endif

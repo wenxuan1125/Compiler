@@ -15,6 +15,7 @@
 #define TOKEN_STRING(t, s)  { LIST; if (opt_tok) printf("<%s: %s>\n", #t, (s)); }
 #define MAX_LINE_LENG       512
 #define MAX_ID_LENG         32
+#define MAX_LINE_NUM        201
 
 // prevent undefined reference error in newer version of flex
 extern "C" int yylex(void);
@@ -22,9 +23,12 @@ extern "C" int yylex(void);
 uint32_t line_num = 1;
 uint32_t col_num = 1;
 char buffer[MAX_LINE_LENG];
+char *source_code[MAX_LINE_NUM+1];
 
 static int32_t opt_src = 1;
 static int32_t opt_tok = 1;
+int32_t opt_dump = 1;
+
 static char string_literal[MAX_LINE_LENG];
 static char *buffer_ptr = buffer;
 
@@ -65,25 +69,33 @@ float {integer}\.(0|[0-9]*[1-9])
 "not" { TOKEN(not);      return NOT; }
 
     /* Keyword */
-"array"   { TOKEN(KWarray);   char* send = strdup(yytext); yylval.constant_str=send; return ARRAY; }
+"array"   { TOKEN(KWarray);   return ARRAY; }
 "begin"   { TOKEN(KWbegin);   return BEGIN_; }
-"boolean" { TOKEN(KWboolean); char* send = strdup(yytext); yylval.constant_str=send; return BOOLEAN; }
+"boolean" { TOKEN(KWboolean); return BOOLEAN; }
 "def"     { TOKEN(KWdef);     return DEF; }
 "do"      { TOKEN(KWdo);      return DO; }
 "else"    { TOKEN(KWelse);    return ELSE; }
 "end"     { TOKEN(KWend);     return END; }
-"false"   { TOKEN(KWfalse);   char* send = strdup(yytext); yylval.constant_str=send; return FALSE; }
+"false"   {
+    TOKEN(KWfalse);
+    yylval.boolean = false;
+    return FALSE;
+}
 "for"     { TOKEN(KWfor);     return FOR; }
-"integer" { TOKEN(KWinteger); char* send = strdup(yytext); yylval.constant_str=send; return INTEGER; }
+"integer" { TOKEN(KWinteger); return INTEGER; }
 "if"      { TOKEN(KWif);      return IF; }
 "of"      { TOKEN(KWof);      return OF; }
 "print"   { TOKEN(KWprint);   return PRINT; }
 "read"    { TOKEN(KWread);    return READ; }
-"real"    { TOKEN(KWreal);    char* send = strdup(yytext); yylval.constant_str=send; return REAL; }
-"string"  { TOKEN(KWstring);  char* send = strdup(yytext); yylval.constant_str=send; return STRING; }
+"real"    { TOKEN(KWreal);    return REAL; }
+"string"  { TOKEN(KWstring);  return STRING; }
 "then"    { TOKEN(KWthen);    return THEN; }
 "to"      { TOKEN(KWto);      return TO; }
-"true"    { TOKEN(KWtrue);    char* send = strdup(yytext); yylval.constant_str=send; return TRUE; }
+"true"    {
+    TOKEN(KWtrue);
+    yylval.boolean = true;
+    return TRUE;
+}
 "return"  { TOKEN(KWreturn);  return RETURN; }
 "var"     { TOKEN(KWvar);     return VAR; }
 "while"   { TOKEN(KWwhile);   return WHILE; }
@@ -98,26 +110,26 @@ float {integer}\.(0|[0-9]*[1-9])
     /* Integer (decimal/octal) */
 {integer} {
     TOKEN_STRING(integer, yytext);
-    yylval.constant_int=atoi(yytext);
+    yylval.integer = strtol(yytext, NULL, 10);
     return INT_LITERAL;
 }
 0[0-7]+   {
     TOKEN_STRING(oct_integer, yytext);
-    yylval.constant_int=atoi(yytext);
+    yylval.integer = strtol(yytext, NULL, 8);
     return INT_LITERAL;
 }
 
     /* Floating-Point */
 {float} {
     TOKEN_STRING(float, yytext);
-    yylval.constant_real=atof(yytext);
+    yylval.real = atof(yytext);
     return REAL_LITERAL;
 }
 
     /* Scientific Notation [Ee][+-]?[0-9]+ */
 ({integer}|{float})[Ee][+-]?({integer}) {
     TOKEN_STRING(scientific, yytext);
-    yylval.constant_str=yytext;
+    yylval.real = atof(yytext);
     return REAL_LITERAL;
 }
 
@@ -139,20 +151,15 @@ float {integer}\.(0|[0-9]*[1-9])
             *str_ptr++ = *yyt_ptr++;
     }
     *str_ptr = '\0';
-     
     TOKEN_STRING(string, string_literal);
-    
-    //
-    char* send = strdup(string_literal); 
-    yylval.constant_str=send;
-    //
+    yylval.string = strdup(string_literal);
     return STRING_LITERAL;
 }
     /* Whitespace */
 [ \t]+ { LIST; }
 
     /* Pseudocomment */
-"//&"[ST][+-].* {
+"//&"[DST][+-].* {
     LIST;
     char option = yytext[3];
     switch (option) {
@@ -162,7 +169,13 @@ float {integer}\.(0|[0-9]*[1-9])
     case 'T':
         opt_tok = (yytext[4] == '+') ? 1 : 0;
         break;
+    case 'D':
+        opt_dump = (yytext[4] == '+') ? 1 : 0;
+        break;
+
     }
+    
+
 }
 
     /* C++ Style Comment */
@@ -178,6 +191,8 @@ float {integer}\.(0|[0-9]*[1-9])
     if (opt_src) {
         printf("%d: %s\n", line_num, buffer);
     }
+
+    source_code[line_num] = strdup(buffer);
     ++line_num;
     col_num = 1;
     buffer[0] = '\0';
@@ -198,3 +213,4 @@ static void strCat(const char *Text) {
     }
     *buffer_ptr = '\0';
 }
+

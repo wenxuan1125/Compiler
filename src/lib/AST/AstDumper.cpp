@@ -19,9 +19,6 @@
 
 #include <cstdio>
 
-// FIXME: remove this line if you choose to use visitor pattern with this template
-//#ifdef I_WANT_TO_USE_VISITOR_PATTERN
-
 void AstDumper::incrementIndentation() {
     m_indentation += m_indentation_stride;
 }
@@ -39,7 +36,7 @@ void AstDumper::visit(ProgramNode &p_program) {
 
     std::printf("program <line: %u, col: %u> %s %s\n",
                 p_program.getLocation().line, p_program.getLocation().col,
-                p_program.getNameCString(), "void");
+                p_program.getNameCString(), p_program.getTypeCString());
 
     incrementIndentation();
     p_program.visitChildNodes(*this);
@@ -51,7 +48,6 @@ void AstDumper::visit(DeclNode &p_decl) {
 
     std::printf("declaration <line: %u, col: %u>\n", p_decl.getLocation().line,
                 p_decl.getLocation().col);
-
     incrementIndentation();
     p_decl.visitChildNodes(*this);
     decrementIndentation();
@@ -60,7 +56,6 @@ void AstDumper::visit(DeclNode &p_decl) {
 void AstDumper::visit(VariableNode &p_variable) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: name, type
     std::printf("variable <line: %u, col: %u> %s %s\n",
                 p_variable.getLocation().line, p_variable.getLocation().col,
                 p_variable.getNameCString(), p_variable.getTypeCString());
@@ -73,36 +68,18 @@ void AstDumper::visit(VariableNode &p_variable) {
 void AstDumper::visit(ConstantValueNode &p_constant_value) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: string of constant value
-    
-    if( p_constant_value.getConstantType()==1){
-        std::printf("constant <line: %u, col: %u> %d\n",
+    std::printf("constant <line: %u, col: %u> %s\n",
                 p_constant_value.getLocation().line,
                 p_constant_value.getLocation().col,
-                p_constant_value.getIntValue());
-    }
-    else if( p_constant_value.getConstantType()==2){
-        std::printf("constant <line: %u, col: %u> %f\n",
-                p_constant_value.getLocation().line,
-                p_constant_value.getLocation().col,
-                p_constant_value.getRealValue());
-    }
-    else if( p_constant_value.getConstantType()==3){
-        std::printf("constant <line: %u, col: %u> %s\n",
-                p_constant_value.getLocation().line,
-                p_constant_value.getLocation().col,
-                p_constant_value.getStringValue());
-    }
+                p_constant_value.getConstantValueCString());
 }
 
 void AstDumper::visit(FunctionNode &p_function) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: name, prototype string
-    std::printf("function declaration <line: %u, col: %u> %s %s %s\n",
+    std::printf("function declaration <line: %u, col: %u> %s %s\n",
                 p_function.getLocation().line, p_function.getLocation().col,
-                p_function.getNameCString(), p_function.getReturnTypeCString(), 
-                p_function.getPrototypeCString());
+                p_function.getNameCString(), p_function.getPrototypeCString());
 
     incrementIndentation();
     p_function.visitChildNodes(*this);
@@ -135,10 +112,9 @@ void AstDumper::visit(PrintNode &p_print) {
 void AstDumper::visit(BinaryOperatorNode &p_bin_op) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: operator string
     std::printf("binary operator <line: %u, col: %u> %s\n",
                 p_bin_op.getLocation().line, p_bin_op.getLocation().col,
-                p_bin_op.getOperatorCString());
+                p_bin_op.getOpCString());
 
     incrementIndentation();
     p_bin_op.visitChildNodes(*this);
@@ -148,10 +124,9 @@ void AstDumper::visit(BinaryOperatorNode &p_bin_op) {
 void AstDumper::visit(UnaryOperatorNode &p_un_op) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: operator string
     std::printf("unary operator <line: %u, col: %u> %s\n",
                 p_un_op.getLocation().line, p_un_op.getLocation().col,
-                p_un_op.getOperatorCString());
+                p_un_op.getOpCString());
 
     incrementIndentation();
     p_un_op.visitChildNodes(*this);
@@ -161,7 +136,6 @@ void AstDumper::visit(UnaryOperatorNode &p_un_op) {
 void AstDumper::visit(FunctionInvocationNode &p_func_invocation) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: function name
     std::printf("function invocation <line: %u, col: %u> %s\n",
                 p_func_invocation.getLocation().line,
                 p_func_invocation.getLocation().col,
@@ -175,7 +149,6 @@ void AstDumper::visit(FunctionInvocationNode &p_func_invocation) {
 void AstDumper::visit(VariableReferenceNode &p_variable_ref) {
     outputIndentationSpace(m_indentation);
 
-    // TODO: variable name
     std::printf("variable reference <line: %u, col: %u> %s\n",
                 p_variable_ref.getLocation().line,
                 p_variable_ref.getLocation().col,
@@ -252,7 +225,3 @@ void AstDumper::visit(ReturnNode &p_return) {
     p_return.visitChildNodes(*this);
     decrementIndentation();
 }
-
-// FIXME: remove this line if you choose to use visitor pattern with this template
-//#endif
-

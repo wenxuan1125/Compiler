@@ -2,28 +2,28 @@
 #define __AST_BINARY_OPERATOR_NODE_H
 
 #include "AST/expression.hpp"
-
+#include "AST/operator.hpp"
+#include <cstring>
 #include <memory>
 
 class BinaryOperatorNode : public ExpressionNode {
   public:
-    BinaryOperatorNode(const uint32_t line, const uint32_t col, Binary_Op p_op,
-                      AstNode *p_left, AstNode *p_right
-                       /* TODO: operator, expressions */);
+    BinaryOperatorNode(const uint32_t line, const uint32_t col, Operator op,
+                       ExpressionNode *p_left, ExpressionNode *p_right);
     ~BinaryOperatorNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
-    void accept(AstNodeVisitor &p_visitor) override;
-    const char *getOperatorCString() const;
+    const char *getOpCString() const;
+    const int checkInvalidChildren() const;
+    const char *getLeftTypeCString() const;
+    const char *getRightTypeCString() const;
 
-    void print() override;
+    void accept(AstNodeVisitor &p_visitor) override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
 
   private:
-    // TODO: operator, expressions
-    
-    AstNode *left;
-    AstNode *right;
-    Binary_Op op;
+    Operator op;
+    std::unique_ptr<ExpressionNode> left;
+    std::unique_ptr<ExpressionNode> right;
 };
 
 #endif

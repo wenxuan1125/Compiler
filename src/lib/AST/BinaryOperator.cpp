@@ -1,94 +1,37 @@
 #include "AST/BinaryOperator.hpp"
+#include "visitor/AstNodeVisitor.hpp"
 
-// TODO
-BinaryOperatorNode::BinaryOperatorNode(const uint32_t line, const uint32_t col, Binary_Op p_op,
-                                       AstNode *p_left, AstNode *p_right)
-    : ExpressionNode{line, col}, op(p_op), left(p_left), right(p_right) {}
+BinaryOperatorNode::BinaryOperatorNode(const uint32_t line, const uint32_t col,
+                                       Operator op, ExpressionNode *p_left,
+                                       ExpressionNode *p_right)
+    : ExpressionNode{line, col}, op(op), left(p_left), right(p_right) {}
 
-// TODO: You may use code snippets in AstDumper.cpp
-const char *BinaryOperatorNode::getOperatorCString() const { 
-    if( op.mul)
-        return "*";
-    else if (op.div)
-        return "/";
-    else if(op.mod)
-        return "mod";
-    else if(op.add)
-        return "+";
-    else if(op.sub)
-        return "-";
-    else if(op.lt)
-        return "<";
-    else if(op.le)
-        return "<=";
-    else if(op.eq)
-        return "=";
-    else if(op.ne)
-        return "<>";
-    else if(op.ge)
-        return ">=";
-    else if(op.gt)
-        return ">";
-    else if(op.AND)
-        return "and";
-    else if(op.OR)
-        return "or";
-}
-void BinaryOperatorNode::print() {
-    AstNode::outputIndentationSpace(m_indentation);
-    std::printf("binary operator <line: %u, col: %u> ",
-                location.line, location.col);
-    
-    if( op.mul)
-        printf("*\n");
-    else if(op.div)
-        printf("/\n");
-    else if(op.mod)
-        printf("mod\n");
-    else if(op.add)
-        printf("+\n");
-    else if(op.sub)
-        printf("-\n");
-    else if(op.lt)
-        printf("<\n");
-    else if(op.le)
-        printf("<=\n");
-    else if(op.eq)
-        printf("=\n");
-    else if(op.ne)
-        printf("<>\n");
-    else if(op.ge)
-        printf(">=\n");
-    else if(op.gt)
-        printf(">\n");
-    else if(op.AND)
-        printf("and\n");
-    else if(op.OR)
-        printf("or\n");
-                
-    AstNode::incrementIndentation();
-    if (left != NULL)
-    {
-        left->print();
-    }
-    if (right != NULL)
-    {
-        right->print();
-    }
-    AstNode::decrementIndentation();
+const char *BinaryOperatorNode::getOpCString() const {
+    return kOpString[static_cast<size_t>(op)];
 }
 
-// void BinaryOperatorNode::visitChildNodes(AstNodeVisitor &p_visitor) {
-//     // TODO
-// }
-void BinaryOperatorNode::accept(AstNodeVisitor &p_visitor){
+void BinaryOperatorNode::accept(AstNodeVisitor &p_visitor) {
     p_visitor.visit(*this);
 }
 
 void BinaryOperatorNode::visitChildNodes(AstNodeVisitor &p_visitor) {
-    if( left!= NULL)
-        left->accept(p_visitor);
-    if( right!= NULL)
-        right->accept(p_visitor);
+    left->accept(p_visitor);
+    right->accept(p_visitor);
+}
+
+const int BinaryOperatorNode::checkInvalidChildren() const{
+    if( std::strcmp(left->getPTypeCString(), "null")==0)
+        return 1;
+    if( std::strcmp(right->getPTypeCString(), "null")==0)
+        return 1;
+
+    return 0;
+}
+
+const char *BinaryOperatorNode::getLeftTypeCString() const{
+    return left->getPTypeCString();
+}
+const char *BinaryOperatorNode::getRightTypeCString() const{
+    return right->getPTypeCString();
 }
 

@@ -1,33 +1,41 @@
 #ifndef __AST_FUNCTION_NODE_H
 #define __AST_FUNCTION_NODE_H
 
+#include "AST/CompoundStatement.hpp"
+#include "AST/PType.hpp"
 #include "AST/ast.hpp"
+#include "AST/decl.hpp"
+
+#include <memory>
+#include <vector>
 
 class FunctionNode : public AstNode {
   public:
-    FunctionNode(const uint32_t line, const uint32_t col,
-                 /* TODO: name, declarations, return type,
-                  *       compound statement (optional) */
-                const char *p_name, const char *p_return,
-                std::vector<AstNode*> *p_decl_list, std::vector<char *> *p_decl_type,
-                AstNode *p_body);
+    typedef std::vector<std::unique_ptr<DeclNode>> Decls;
+
+    FunctionNode(const uint32_t line, const uint32_t col, const char *p_name,
+                 Decls *p_parameters, const PType *p_type,
+                 CompoundStatementNode *p_body);
     ~FunctionNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
-    void accept(AstNodeVisitor &p_visitor) override;
     const char *getNameCString() const;
-    const char *getReturnTypeCString() const;
+    const char *getTypeCString() const;
     const char *getPrototypeCString() const;
+    const char *getArgumentCString() const;
 
-    void print() override;
+    bool isDefined() const;
+
+    void accept(AstNodeVisitor &p_visitor) override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
 
   private:
-    // TODO: name, declarations, return type, compound statement
     const std::string name;
-    const std::string return_type;
-    std::vector<AstNode*> *declaration_list;  // list of declation nodes
-    std::vector<char *> *declaration_type;  // for function prototype
-    AstNode *body; // body is a compound statement node
+    Decls parameters;
+    PTypeSharedPtr return_type;
+    mutable std::string prototype_string;
+    mutable std::string argument_string;
+    mutable bool prototype_string_is_valid = false;
+    std::unique_ptr<CompoundStatementNode> body;
 };
 
 #endif

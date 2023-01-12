@@ -22,7 +22,7 @@ class ReturnNode;
 
 class AstNodeVisitor {
   public:
-    virtual ~AstNodeVisitor(){};
+    virtual ~AstNodeVisitor() = 0;
 
     virtual void visit(ProgramNode &p_program) {}
     virtual void visit(DeclNode &p_decl) {}
@@ -44,4 +44,3 @@ class AstNodeVisitor {
 };
 
 #endif
-

@@ -2,4 +2,3 @@
 
 // prevent the linker from complaining
 AstNodeVisitor::~AstNodeVisitor() {}
-

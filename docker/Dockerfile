@@ -10,6 +10,7 @@ RUN apt-get --no-install-recommends install -y \
     build-essential make \
     flex libfl-dev \
     bison \
+    gdb \
     && rm -rf /var/lib/apt/lists/*
 # RUN rm -rf /var/lib/apt/lists/*
 

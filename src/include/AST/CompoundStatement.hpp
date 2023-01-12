@@ -2,26 +2,26 @@
 #define __AST_COMPOUND_STATEMENT_NODE_H
 
 #include "AST/ast.hpp"
+#include "AST/decl.hpp"
+
+#include <memory>
+#include <vector>
 
 class CompoundStatementNode : public AstNode {
   public:
+    typedef std::vector<std::unique_ptr<DeclNode>> Decls;
+    typedef std::vector<std::unique_ptr<AstNode>> Nodes;
+
     CompoundStatementNode(const uint32_t line, const uint32_t col,
-                          /* TODO: declarations, statements */
-                          std::vector<AstNode*> *p_decl_list, 
-                          std::vector<AstNode*> *p_stat_list);
+                          Decls *p_var_decls, Nodes *p_statements);
     ~CompoundStatementNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
     void accept(AstNodeVisitor &p_visitor) override;
-
-
-    void print() override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
 
   private:
-    // TODO: declarations, statements
-    std::vector<AstNode*> *declaration_list;  // list of declaration nodes
-    std::vector<AstNode*> *statement_list;   // list of statement nodes
+    Decls var_decls;
+    Nodes statements;
 };
 
 #endif
-

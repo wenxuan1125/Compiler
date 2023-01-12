@@ -1,4 +1,4 @@
-NAME = hw3-spec
+NAME = hw4-spec
 SPEC_SRC = ../../README.md
 RESOURCE_SRC = imgs
 

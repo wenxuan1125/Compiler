@@ -3,27 +3,32 @@
 
 #include "AST/expression.hpp"
 
+#include <memory>
+#include <vector>
+#include <cstring>
+
 class VariableReferenceNode : public ExpressionNode {
   public:
-    // normal reference
+    typedef std::vector<std::unique_ptr<ExpressionNode>> Exprs;
+
     VariableReferenceNode(const uint32_t line, const uint32_t col,
-                          const char *p_name, std::vector<AstNode*> *p_expr_list
-                          /* TODO: name */);
-    // array reference
-    // VariableReferenceNode(const uint32_t line, const uint32_t col
-    //                       /* TODO: name, expressions */);
+                          const char *p_name);
+    VariableReferenceNode(const uint32_t line, const uint32_t col,
+                          const char *p_name, Exprs *p_indices);
     ~VariableReferenceNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
-    void accept(AstNodeVisitor &p_visitor) override;
     const char *getNameCString() const;
+    const int getIndicesNum() const;
+    const int checkNonIntegerIndices() const;
+    const int checkInvalidChildren() const;
 
-    void print() override;
+
+    void accept(AstNodeVisitor &p_visitor) override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
 
   private:
-    // TODO: variable name, expressions
     const std::string name;
-    std::vector<AstNode*> *expression_list;
+    Exprs indices;
 };
 
 #endif

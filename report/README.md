@@ -1,4 +1,4 @@
-# hw3 report
+# hw4 report
 
 |||
 |-:|:-|
@@ -9,189 +9,169 @@
 
 e.g. 2 hours.
 
-一個星期(如果加上把spec看懂的話可能要多個3天)。
+一個禮拜。
 
 ## Project overview
 
 Describe the project structure and how you implemented it.
 
-首先是scanner的部分，在return token前，我把一些在parser中terminal需要的attribite資訊利用yylval.terminal_type傳給parser（這裡的type要和parser中union的type對起來），這樣parser中才可以透過$拿到terminal的attribute資訊。
+在這次的project中，利用了上次建好的ast，多新增了一種vistor（也就是semantic analyzer）去拜訪那個ast，然後在這個過程中，去建symbol table、做語意分析。
 
-    /* Integer (decimal/octal) */
-{integer} {
-    TOKEN_STRING(integer, yytext);
-    yylval.constant_int=atoi(yytext);
-    return INT_LITERAL;
-}
+首先，我寫了我的symbol table會用到的東西的class ( 分別有symbol manager，是symbol table的stack、symbol table和symbol entry。然後class宣告好之後，就是開始建symbol table和做語意分析。
 
-之後在parser中要宣告nonterminal的attribute的type（就是利用$拿到的東西的type，也是宣告在union中，然後這裡面如果是c沒有但c++有的東西要宣告成指標，像是vector，然後和我自己寫的struct等等要在code requires中宣告和include才能用)
+以program node的visit為例：
 
-%type <identifier> ProgramName ID FunctionName
-%type <node_list> DeclarationList Declarations FunctionList Functions StatementList Statements
-%type <node_list> ExpressionList Expressions ArrRefs ArrRefList
+    current_table=new SymbolTable;
+    current_entry = new SymbolEntry(p_program.getNameCString(), program, m_level, "void", "");
+    current_table->addSymbol(current_entry);
+    symbol_manager->pushScope(current_table);
 
-    /* For yylval */
-%union {
-    /* basic semantic value */
-    char *identifier;
+    p_program.visitChildNodes(*this);
 
-    AstNode *node;
-    //
-    int constant_int;
-    float constant_real;
-    char *constant_str;
-    std::vector<AstNode*> *node_list;
-    std::vector<char *> *identifier_list;
-    Constant_Value *constant;
-    Func_Prototype *prototype;
-    std::vector<Name*> *name_list;
-};
+    current_table=symbol_manager->topScope();
+    if(opt_dump)
+        current_table->dumpSymbol();
+    symbol_manager->popScope();
 
-%code requires {
-    class AstNode;
-    struct Constant_Value;
-    struct Name;
-    struct Func_Prototype;
-    struct Binary_Op;
-    struct Unary_Op;
-    #include <vector>
-}
+當我進入一個新的scope時，就要new一個新的symbol table然，然後在這個新的symbol table上加上這個program的symbol entry，接著把計算現在的level的全域變數++，然後去拜訪它的小孩。等拜訪完小孩之後，這個scope要結束了，所以如果現在沒有設定說不要印的話就把它印出來，然後再從stack中pop掉。在其他需要建symbol table有關的地方也是一樣的做法。
 
-再來是在cpp和hpp寫node需要的內容，然後在parser中利用$得到nonterminal和terminal的attribute，然後建立node，把各種node組成ast。
-以declaration node為例子說明：
-首先因為declaration node需要variable的list，所以我在它的class中宣告了一個verctor<AstNode*> *的variable_list指標，然後把它的constructor補齊（就是把傳進來的的東西賦值給我的東西，其他node的class也是像這樣寫）。
+建好symbol table之後，再來是語意分析。首先做的事情是把expression node中的type設好（預設是nullptr，我在設type的時候，如果發現這顆node的小孩有錯，就不設這顆node的type，讓他維持是nullptr，所以在做語意分析時若要確認小孩有沒有錯，我就是以type是不是nullptr來確認的）。
+所以以variable reference為例：
 
-in .hpp
-  std::vector<AstNode*> *variable_list;  // list of variable nodes
-  
-in .cpp
- DeclNode::DeclNode(const uint32_t line, const uint32_t col,
-                    std::vector<AstNode*> *p_var_list)
-    : AstNode{line, col}, variable_list(p_var_list) {}
+    p_variable_ref.visitChildNodes(*this);
 
-把class寫完之後，回到parser中把node建起來。
-parser中有兩種declaration node的建立方式：
+    if(!p_variable_ref.checkInvalidChildren()){
+        if( !current_table->checkInErrorDeclaration(p_variable_ref.getNameCString())){
 
-第一種：
-Declaration:    // Astnode
-    VAR IdList COLON Type SEMICOLON 
-    {
-        std::vector<AstNode*> *var_list=new std::vector<AstNode*>;
-        char s[MAX_ARRAYDECL_LENG+1];
-        for( int i=0; i<$2->size(); i++){
 
-            VariableNode *v=new VariableNode($2->at(i)->line, $2->at(i)->col, $2->at(i)->id, $4, NULL);
-            var_list->push_back(v);
+            while( symbol_manager->getScopeSize()!=0){
+
+                temp_current = symbol_manager->topScope();
+                symbol_manager->popScope();
+                temp_manager->pushScope(temp_current);
+
+                if( temp_current->checkRedeclaration(p_variable_ref.getNameCString())){
+                    if(temp_current->getEntry(p_variable_ref.getNameCString())->getKindValue()==program ||
+                temp_current->getEntry(p_variable_ref.getNameCString())->getKindValue()==function){
+                        error_happen = true;
+                    
+                        std::cerr << "<Error> Found in line " << p_variable_ref.getLocation().line 
+                                << ", column " << p_variable_ref.getLocation().col << ": use of non-variable symbol '" 
+                                << p_variable_ref.getNameCString() << "'\n";
+
+                        std::cerr << "    " << source_code[p_variable_ref.getLocation().line] << '\n';
+                        showArrow(p_variable_ref.getLocation().col);
+                        break;
+                    }
+
+                    if(p_variable_ref.getIndicesNum()
+                        >temp_current->getEntry(p_variable_ref.getNameCString())->getTypeDimension()){
+                        error_happen = true;
+                        std::cerr << "<Error> Found in line " << p_variable_ref.getLocation().line
+                                << ", column " << p_variable_ref.getLocation().col
+                                << ": there is an over array subscript on '" 
+                                << p_variable_ref.getNameCString() << "'\n";
+
+                        std::cerr << "    " << source_code[p_variable_ref.getLocation().line] << '\n';
+                        showArrow(p_variable_ref.getLocation().col);
+                        break;
+                    }
+
+                                        if(p_variable_ref.checkNonIntegerIndices()!=-1){
+
+                            error_happen = true;
+                            std::cerr << "<Error> Found in line " << p_variable_ref.getLocation().line
+                                    << ", column " << p_variable_ref.checkNonIntegerIndices()
+                                    << ": index of array reference must be an integer\n";
+
+                            std::cerr << "    " << source_code[p_variable_ref.getLocation().line] << '\n';
+                            showArrow(p_variable_ref.checkNonIntegerIndices());
+                            break;
+                        }
+
+                        // set type
+                        PTypeSharedPtr p_type;
+                        const SymbolEntry *this_entry = temp_current->getEntry(p_variable_ref.getNameCString());
+                        const char *type_string = this_entry->getTypeCString();
+                        const char *primitive_type;
+                        if (std::strchr(type_string, '[') != NULL)
+                        {
+                            // array type
+                            if(type_string[0]=='v') // void
+                                primitive_type = "void";
+                            else if(type_string[0]=='b') // boolean
+                                primitive_type = "boolean";
+                            else if(type_string[0]=='s') // string
+                                primitive_type = "string";
+                            else if(type_string[0]=='i') // integer
+                                primitive_type = "integer";
+                            else if(type_string[0]=='r') // real
+                                primitive_type = "real";
+                        }
+                        else
+                            primitive_type = type_string;
+
+                        if( std::strcmp( primitive_type, "void")==0)
+                            p_variable_ref.setNodeType(std::make_shared<const PType>(PType::PrimitiveTypeEnum::kVoidType));
+                        else if( std::strcmp( primitive_type, "boolean")==0)
+                            p_variable_ref.setNodeType(std::make_shared<const PType>(PType::PrimitiveTypeEnum::kBoolType));
+                        else if( std::strcmp( primitive_type, "string")==0)
+                            p_variable_ref.setNodeType(std::make_shared<const PType>(PType::PrimitiveTypeEnum::kStringType));
+                        else if( std::strcmp( primitive_type, "integer")==0)
+                            p_variable_ref.setNodeType(std::make_shared<const PType>(PType::PrimitiveTypeEnum::kIntegerType));
+                        else if( std::strcmp( primitive_type, "real")==0)
+                            p_variable_ref.setNodeType(std::make_shared<const PType>(PType::PrimitiveTypeEnum::kRealType));
+
+                        std::vector<uint64_t> dims = this_entry->getNewTypeDimensions(p_variable_ref.getIndicesNum());
+                        p_variable_ref.setNodeTypeDimensions(dims);
+
+                        break;
+                    
+                    
+                }
+
+                if( symbol_manager->getScopeSize()==0){
+                    error_happen = true;
+                    std::cerr << "<Error> Found in line " << p_variable_ref.getLocation().line 
+                            << ", column " << p_variable_ref.getLocation().col << ": use of undeclared symbol '" 
+                            << p_variable_ref.getNameCString() << "'\n";
+                    std::cerr << "    " << source_code[p_variable_ref.getLocation().line] << '\n';
+                    showArrow(p_variable_ref.getLocation().col);
+                }
+            }
+            while( temp_manager->getScopeSize()!=0){
+                symbol_manager->pushScope(temp_manager->topScope());
+                temp_manager->popScope();
+            }
         }
-        $$ = new DeclNode(@1.first_line, @1.first_column, var_list);
-        
-    }
-    
-這裡要建的declaration node，因為參數需要variable的list，但這條的nonterminal中沒有variable node（idlist的type是我寫的struct的vector的指標，我的裡面存了id和id的line和column，因為在variable node中的location要用的是id的位置，所以不能直接在這裡用@2放idlist的位置，而是在它還是id 還沒reduce成idlist之前就要把它存起來），所以用for迴圈去把idlist中的id建成variable node再把它push到variable list中，最後建declaration node再把它傳進去。
-
-第二種：
-Declaration:    // Astnode
-    VAR IdList COLON LiteralConstant SEMICOLON
-    {
-        ConstantValueNode *c=new ConstantValueNode($4->line, $4->col, *($4));
-        std::vector<AstNode*> *var_list=new std::vector<AstNode*>;
-        char *s;
-        for( int i=0; i<$2->size(); i++){
-            if( $4->int_type){
-                s="integer"; 
-            }
-            else if( $4->real_type){
-                s="real"; 
-            }
-            else if( $4->str_type){
-                s="string"; 
-            }
-            else if( $4->bool_type){
-                s="boolean";
-            }
-
-            VariableNode *v=new VariableNode($2->at(i)->line, $2->at(i)->col, $2->at(i)->id, s, c);
-            var_list->push_back(v);
-        }
-          
-        $$ = new DeclNode(@1.first_line, @1.first_column, var_list);
     }
 
-這種declaration node下面的variable node之下還有constantvalue node（上一種沒有），所以在這裡建variable node之前還要先建constantvalue node，接著建variable node時，因為我是把literalconstant包成一個struct，裡面存了它是那種type和它的value，所以需要用if來判斷，再把它放到variable node的參數中。
+首先拜訪小孩，拜訪小孩回來之後check小孩有沒有error，沒有的話才繼續做下面的語意分析。因為在symbol table中會有一些entry是它宣告是錯的（像是測資中的err: integer[0]，array的宣告中，每個dimension都要大於0，雖然不合法，但它還是會放在symboltable中，所以要排除這種情況）。接著因為能拿來reference的變數並不一定是在目前的scope下宣告的，所以需要去現在的stack中把每張sybol table看過一次確認有沒有宣告過他（現在有在stack上的symbol table就是能reference的地方，像是live activation的感覺，我的做法是開temp的stack去存pop出來的symbol table，檢查完後再從這個暫時的pop出來push回原來的stack裡），全部找完都找不到就表示它是沒宣告過的，如果找到了的話，就去找到的那種symbol table中看它是不是variable、array的subscript個數是不是比宣告的多、suscript的值是不是integer，如果都沒錯的話，我就去symbol table中找這個variable的type然後給這個variable reference node設type。我在設type的時候把PType.hpp中的dimensions變數加上了mutable，因為當是array的時候，我也需要設這個變數，但因為我會在const的function設，所以要加上mutable。其他做語意分析的node也是差不多的做法。
 
-像這樣子建好declration node之後，他要串成declaration list，最後傳給program node。
-串成declaration list也是先new一個vector<AstNode*>的指標，然後一個一個把東西push進去。
-Declarations:   
-    Declaration 
-    {   
-        std::vector<AstNode*> *v=new std::vector<AstNode*>;
-        v->push_back( $1);
-        $$=v;
+另外，我印出code的地方是在scanner讀到\n時，把那行的code存入一個char*的array，在semantic analyzer中把這個array宣告成extern，要印出來的時候再用array[行數]，就可以拿到那行的code。
 
-    }
-    |
-    Declarations Declaration
-    {
-        $$=$1;
-        $$->push_back($2);
-
-    }
-    
-   DeclarationList:    // node_list
-    Epsilon 
-    { 
-        $$=NULL;
-    }
-    |
-    Declarations 
-    {
-        $$=$1;
-    }
-    
-最後在program這裡就可以拿到declaration list，然後用它來建立program node。
-Program:
-    ProgramName SEMICOLON
-    /* ProgramBody */
-    DeclarationList FunctionList CompoundStatement
-    /* End of ProgramBody */
-    END 
-    {
-        root = new ProgramNode(@1.first_line, @1.first_column,
-                               $1, "void", $3, $4, $5);
-
-        free($1);
+    /* Newline */
+<INITIAL,CCOMMENT>\n {
+    if (opt_src) {
+        printf("%d: %s\n", line_num, buffer);
     }
 
-其他的node和建ast也是相同的建立方式，只是每個node傳的參數不太一樣。
-
-實現visitor pattern：
-因為我是先寫普通的多型，寫完之後才改成visitor pattern的，所以我的code中有多型用的print和visitor pattern 用的accept、visitchildnodes和get...。
-每個node中的accept是用來接受visitor的拜訪的(裡面是visit這顆node)，因為visitor這個function是參數不一樣的多載，但是在parser中宣告的type都是AstNode*，如果直接在parser中visit那顆node，它只知道它是AstNode*，不知道他是哪一種node，它就沒辦法呼叫對應的visit function。所以透過accept這個function，因為它裡面會在visit中放入this*，這樣它就可以知道它是哪種node，也就能呼叫對應的visit function。然後在visit這個function 中，就會印出要印的東西，但因為對node來說，visitor是外人，沒辦法直接存取private的變數們，所以在node需要一些get function來給外面的人變數值。印完自己的東西後就呼叫visitchildnodes去拜訪小孩，裡面就是去呼叫小孩的accept。就這樣一直下去就可以印完所有的東西。
-
-void BinaryOperatorNode::accept(AstNodeVisitor &p_visitor){
-    p_visitor.visit(*this);
+    source_code[line_num] = strdup(buffer);
+    ++line_num;
+    col_num = 1;
+    buffer[0] = '\0';
+    buffer_ptr = buffer;
 }
 
-void BinaryOperatorNode::visitChildNodes(AstNodeVisitor &p_visitor) {
-    if( left!= NULL)
-        left->accept(p_visitor);
-    if( right!= NULL)
-        right->accept(p_visitor);
-}
-
-const char *ProgramNode::getNameCString() const { return name.c_str(); }
 
 ## What is the hardest you think in this project
 
 Let us know, if any.
 
-我覺得最難的部分是會不知道要怎麼開始，spec雖然寫的很多，但可能太多了而且又是第一次寫這種東西，一開始看完spec真的是很混亂。
-
-還有就是字串的處理弄了很久，我在做的時候常常碰到在底下的字串印出來是對的，但等到reduce到上層時字串就會莫名其妙的被覆蓋掉（有確認過我沒有自己去寫到它）。後來上網查到發現好像是yytext這個指標的問題，因為它可能會一直去接下一個token的match的字串，所以可能不知道哪時候前面的東西就會自己消失了，所以若是直接賦值給yylval，parser又直接拿$去取的話，它可能那時候就不知道去哪了，解法是在scanner給yylval前可以用strdup給他一個memory的位置！
+最難的部分我覺得是建表格和設expression node的type的地方。建表格因為有很多scope的事情要考慮，一開始還不是很清楚，花了一些時間在研究和修改它。type的話因為自己加了很多function，像是前面提到的把dimensions改成mutable或是為了的得到node在symbol table中的type做了很多字串處理，還滿辛苦的。
 
 ## Feedback to T.A.s
 
 > Please help us improve our assignment, thanks.
 
-我覺得這次的spec檔案實在是太多太分散了，一開始點進去的那個spec雖然寫了很多實作的細節和方式，但其他也很重要的spec像是寫那個每個node裡需要有哪些東西的spec或是visitor pattern的spec被放在一開始那個spec的小小文字的連結，很容易就會讓別人忽略它的存在。另外，雖然spec寫的很完整，但還是會希望如果可以的話，老師可以在上課的時候，稍微解釋一下整個作業的邏輯，在寫作業時花在看spec和理解自己到底要做什麼的時間應該會就少一點，寫起作業應該也會快樂一點（嗎？）
-
+小抱怨是明明是兩個星期的作業，但卻星期四才出，結果禮拜二就deadline了，寫起來壓力很大，而且感覺這次的作業難度應該也可以開到三個禮拜。

@@ -5,4 +5,3 @@ test:
 
 clean:
 	$(RM) -r result
-	

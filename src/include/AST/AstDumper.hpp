@@ -38,4 +38,3 @@ class AstDumper : public AstNodeVisitor {
 };
 
 #endif
-

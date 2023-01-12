@@ -1,23 +1,28 @@
 #ifndef __AST_WHILE_NODE_H
 #define __AST_WHILE_NODE_H
 
+#include "AST/CompoundStatement.hpp"
 #include "AST/ast.hpp"
+#include "AST/expression.hpp"
+
+#include <memory>
+#include <cstring>
 
 class WhileNode : public AstNode {
   public:
-    WhileNode(const uint32_t line, const uint32_t col, AstNode *p_cond, AstNode *p_body
-              /* TODO: expression, compound statement */);
+    WhileNode(const uint32_t line, const uint32_t col,
+              ExpressionNode *p_condition, CompoundStatementNode *p_body);
     ~WhileNode() = default;
 
-    void visitChildNodes(AstNodeVisitor &p_visitor);
     void accept(AstNodeVisitor &p_visitor) override;
-
-    void print() override;
+    void visitChildNodes(AstNodeVisitor &p_visitor) override;
+    const int checkInvalidCondition() const;
+    const int checkConditionBoolType() const;
+    const uint32_t getConditionLocationCol() const;
 
   private:
-    // TODO: expression, compound statement
-    AstNode *condition;
-    AstNode *body;
+    std::unique_ptr<ExpressionNode> condition;
+    std::unique_ptr<CompoundStatementNode> body;
 };
 
 #endif
